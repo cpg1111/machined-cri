@@ -1,6 +1,10 @@
 package: github.com/cpg1111/nspawnlet
+ignore:
+- k8s.io/client-go
 import:
 - package: k8s.io/kubernetes
   version: v1.4.6
 - package: github.com/coreos/go-systemd
-  versoin: v14
+- package: golang.org/x/exp
+  subpackages:
+  - inotify
