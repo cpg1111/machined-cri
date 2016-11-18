@@ -3,7 +3,7 @@ get-deps:
 	go get -u github.com/Masterminds/glide
 	glide install
 build:
-	CGO_ENABLED=0 go build -o ${BUILD_PREFIX}/nspawnlet ./src/main.go
+	CGO_ENABLED=0 go build -o ${BUILD_PREFIX}/nspawnlet ./main.go
 test:
 	go test ./src/...
 clean:
