@@ -1,0 +1,6 @@
+package: github.com/cpg1111/nspawnlet
+import:
+- package: k8s.io/kubernetes
+  version: v1.4.6
+- package: github.com/coreos/go-systemd
+  versoin: v14
