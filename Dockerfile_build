@@ -1,0 +1,7 @@
+FROM golang:1.7
+ENV NSPAWNLET_SRC_PATH $GOPATH/src/github.com/cpg1111/nspawnlet
+ENV BUILD_PREFIX /opt/dist/
+VOLUME ./dist/ /opt/dist/
+RUN apt-get update && apt-get install -y build-essential
+COPY ./src/ $NSPAWNLET_SRC_PATH
+ENTRYPOINT ["make"]
