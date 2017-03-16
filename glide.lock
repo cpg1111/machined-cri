@@ -1,8 +1,6 @@
-hash: 89025a674d7e2f9f90deb794fddf8eeaa6785bb1521972fe1629cc12689f80a1
-updated: 2016-11-18T16:30:41.868489375-05:00
+hash: fda20b508c39edde7599f0176115bb116fe568da7fef2d8bcd9d1880d42b4c2f
+updated: 2017-03-03T00:15:31.66864054-05:00
 imports:
 - name: github.com/coreos/go-systemd
   version: 48702e0da86bd25e76cfef347e2adeb434a0d0a6
-- name: k8s.io/kubernetes
-  version: e569a27d02001e343cb68086bc06d47804f62af6
 testImports: []

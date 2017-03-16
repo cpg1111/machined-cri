@@ -1,6 +1,4 @@
-package: github.com/cpg1111/nspawnlet
+package: github.com/cpg1111/machined-cri
 import:
-- package: k8s.io/kubernetes
-  version: v1.4.6
 - package: github.com/coreos/go-systemd
-  versoin: v14
+  version: ^14.0.0
