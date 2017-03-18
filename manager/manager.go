@@ -2,6 +2,9 @@ package manager
 
 import (
 	"context"
+	"net"
+	"os"
+	"syscall"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
@@ -28,6 +31,28 @@ func NewMachinedManager(rtSrv runtime.RuntimeService, iSrv runtime.ImageService,
 	}
 	m.registerServer()
 	return m, nil
+}
+
+func (m *MachinedManager) Serve(addr string) error {
+	glog.V(3).Infof("Starting Machined on %s", addr)
+	if err := syscall.Unlink(addr); err != nil && os.IsNotExist(err) {
+		return err
+	}
+	if m.streamingServer != nil {
+		go func() {
+			err = m.streamingServer.Start(true)
+			if err != nil {
+				glog.Fatalf("Failed to start streaming server: %v", err)
+			}
+		}()
+		listener, err := net.Listen("unix", addr)
+		if err != nil {
+			glog.Fatalf("Failed to listen %s: %v", addr, err)
+			return err
+		}
+		defer listener.Close()
+		return m.server.Serve(listener)
+	}
 }
 
 func (m *MachinedManager) registerServer() {
@@ -92,4 +117,54 @@ func (m *MachinedManager) ListPodSandbox(ctx context.Context, req *kubelet.ListP
 		return nil, err
 	}
 	return &kubelet.ListPodSandboxResponse{Items: pods}, nil
+}
+
+func (m *MachinedManager) CreateContainer(ctx context.Context, req *kubelet.CreateContainerRequest) (*kubelet.CreateContainerResponse, error) {
+	glog.V(3).Infof("CreateContainer with request %s", req.String())
+	containerID, err := m.runtimeService.CreateContainer(req.PodSandboxId, req.Config, req.SandboxConfig)
+	if err != nil {
+		glog.Errorf("CreateContainer from runtime service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.CreateContainerResponse{ContainerId: containerID}, nil
+}
+
+func (m *MachinedManager) StartContainer(ctx context.Context, req *kubelet.StartContainerRequest) (*kubelet.StartContainerResponse, error) {
+	glog.V(3).Infof("StartContainer with request %s", req.String())
+	err := m.runtimeService.StartContainer(req.ContainerId)
+	if err != nil {
+		glog.Errorf("StartContainer from runtime service failed: %v", err)
+		return err
+	}
+	return &kubelet.StartContainerResponse{}, nil
+}
+
+func (m *MachinedManager) StopContainer(ctx context.Context, req *kubelet.StopContainerRequest) (*kubelet.StopContainerResponse, error) {
+	glog.V(3).Infof("StopContainer with request %s", req.String())
+	err := m.runtimeService.StopContainer(req.ContainerId, req.Timeout)
+	if err != nil {
+		glog.Errorf("StopContainer from runtime service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.StopContainerResponse{}, nil
+}
+
+func (m *MachinedManager) RemoveContainer(ctx context.Context, req *kubelet.RemoveContainerRequest) (*kubelet.RemoveContainerResponse, error) {
+	glog.V(3).Infof("RemoveContainer with request %s", req.String())
+	err := m.runtimeService.RemoveContainer(req.ContainerId)
+	if err != nil {
+		glog.Errorf("RemoveContainer from runtime service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.RemoveContainerResponse{}, nil
+}
+
+func (m *MachinedManager) ListContainers(ctx context.Context, req *kubelet.ListContainersRequest) (*kubelet.ListContainersResponse, error) {
+	glog.V(3).Infof("ListContainers with request %s", req.String())
+	containers, err := m.runtimeService.ListContainers(req.GetFilter())
+	if err != nil {
+		glog.Errorf("ListContainers from runtime service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.ListContainersResponse{Containers: container}, nil
 }
