@@ -168,3 +168,13 @@ func (m *MachinedManager) ListContainers(ctx context.Context, req *kubelet.ListC
 	}
 	return &kubelet.ListContainersResponse{Containers: container}, nil
 }
+
+func (m *MachinedManager) ContainerStatus(ctx context.Context, req *kubelet.ContainerStatusRequest) (*kubelet.ContainerStatusResponse, error) {
+	glog.V(3).Infof("ContainerStatus with request %s", req.String())
+	containerStatus, err := m.runtimeService.ContainerStatus(req.ContainerId)
+	if err != nil {
+		glog.Errorf("ContainerStatus from runtime service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.ContainerStatusResponse{Status: containerStatus}, nil
+}
