@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/util/workqueue"
 	kubelet "k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/runtime"
 	"k8s.io/kubernetes/pkg/kubelet/server/streaming"
 	uitlexec "k8s.io/kubernetes/pkg/util/exec"
@@ -103,7 +104,7 @@ func (m *MachinedManager) PodSandboxStatus(ctx context.Context, req *kubelet.Pod
 	glog.V(3).Infof("PodSandboxStatus with request %s", req.String())
 	podStatus, err := m.runtimeService.PodSandboxStatus(req.PodSandboxId)
 	if err != nil {
-		glog.Errorf("PodSandboxStatus from runtime service failed: %s", err)
+		glog.Errorf("PodSandboxStatus from runtime service failed: %v", err)
 		return nil, err
 	}
 	return &kubelet.PodSandboxStatusResponse{Status: podStatus}, nil
@@ -113,7 +114,7 @@ func (m *MachinedManager) ListPodSandbox(ctx context.Context, req *kubelet.ListP
 	glog.V(3).Infof("ListPodSandbox with request %s", req.String())
 	pods, err := m.runtimeService.ListPodSandbox(req.GetFilter())
 	if err != nil {
-		glog.Errorf("ListPodSandbox from runtime service failed: %s", err)
+		glog.Errorf("ListPodSandbox from runtime service failed: %v", err)
 		return nil, err
 	}
 	return &kubelet.ListPodSandboxResponse{Items: pods}, nil
@@ -177,4 +178,137 @@ func (m *MachinedManager) ContainerStatus(ctx context.Context, req *kubelet.Cont
 		return nil, err
 	}
 	return &kubelet.ContainerStatusResponse{Status: containerStatus}, nil
+}
+
+func (m *MachinedManager) ExecSync(ctx context.Context, req *kubelet.ExecSyncRequest) (*kubelet.ExecSyncResponse, error) {
+	glog.V(3).Infof("ExecSync with request %s", req.String())
+	stdout, stderr, err := m.runtimeService.ExecSync(req.ContainerId, req.Cmd, time.Duration(req.Timeout)*time.Second)
+	var exitCode int32
+	if err != nil {
+		exitError, ok := err.(utilexec.ExitError)
+		if !ok {
+			glog.Errorf("ExecSync from runtime service failed: %v", err)
+			return nil, err
+		}
+		exitCode = int32(exitError.ExitStatus())
+	}
+	return &kubelet.ExecSyncResponse{
+		Stdout:   stdout,
+		Stderr:   stderr,
+		ExitCode: exitCode,
+	}, nil
+}
+
+func (m *MachinedManager) Exec(ctx context.Context, req *kubelet.ExecRequest) (*kubelet.ExecResponse, error) {
+	glog.V(3).Infof("Exec with request %s", req.String())
+	resp, err := m.runtimeService.Exec(req)
+	if err != nil {
+		glog.Errorf("Exec from runtime service failed: %v", err)
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (m *MachinedManager) Attach(ctx context.Context, req *kubelet.AttachRequest) (*kubelet.AttachResponse, error) {
+	glog.V(3).Infof("Attach with request %s", req.String())
+	resp, err := m.runtimeService.Attach(req)
+	if err != nil {
+		glog.Errorf("Attach from runtime service failed: %v", err)
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (m *MachinedManager) PortForward(ctx context.Context, req *kubelet.PortForwardRequest) (*kubelet.PortForwardResponse, error) {
+	glog.V(3).Infof("PortForward with request %s", req.String())
+	resp, err := m.runtimeService.PortForward(req)
+	if err != nil {
+		glog.Errorf("PortForward from runtime service failed: %v", err)
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (m *MachinedManager) UpdateRuntimeConfig(ctx context.Context, req *kubelet.UpdateRuntimeConfigRequest) (*kubelet.UpdateRuntimeConfigResponse, error) {
+	glog.V(3).Infof("UpdateRuntimeConfig with request %s", req.String())
+	err := m.runtimeService.UpdateRuntimeConfig(req.GetRuntimeConfig())
+	if err != nil {
+		return nil, err
+	}
+	return &kubelet.UpdateRuntimeConfigResponse{}, nil
+}
+
+func (m *MachinedManager) Status(ctx context.Context, req *kubelet.StatusRequest) (*kubelet.StatusResponse, error) {
+	glog.V(3).Infof("Status with request %s", req.String())
+	status, err := m.runtimeService.Status()
+	if err != nil {
+		glog.V(3).Errorf("Status from runtime service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.StatusResponse{
+		Status: status,
+	}, nil
+}
+
+func (m *MachinedManager) ListImages(ctx context.Context, req *kubelet.ListImagesRequest) (*kubelet.ListImagesResponse, error) {
+	glog.V(3).Infof("ListImages with request %s", req.String())
+	images, err := m.imageService.ListImages(req.GetFilter())
+	if err != nil {
+		glog.Errorf("ListImages from image service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.ListImagesResponse{
+		Images: images,
+	}, nil
+}
+
+func (m *MachinedManager) ImageStatus(ctx context.Context, req *kubelet.ImageStatusRequest) (*kubelet.ImageStatusResponse, error) {
+	glog.V(3).Infof("ImageStatus with request %s", req.String())
+	status, err := m.imageService.Status(req.Image)
+	if err != nil {
+		glog.Errorf("ImageStatus from hyper image service failed: %v", err)
+		return nil, err
+	}
+	return &kubelet.ImageStatusResponse{Image: status}, nil
+}
+
+func (m *MachineManager) PullImage(ctx context.Context, req *kubelet.PullImageRequest) (*kubelet.PullImageResponse, error) {
+	glog.V(3).Infof("PullImage with request %s", req.String())
+	images := []string{}
+	errs := []error{}
+	pullImageFunc := func(i int) {
+		if i == 0 {
+			imageRef, err := m.imageService.PullImage(req.Image, req.Auth)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("PullImage from machined image service failed: %v", err))
+			}
+		}
+	}
+	workqueue.Parallelize(2, 2, pullImageFunc)
+	if len(errs) > 0 || len(images) == 0 {
+		glog.Error(errs[0])
+		return nil, errs[0]
+	}
+	return &kubelet.PullImageResponse{
+		ImageRef: images[0],
+	}, nil
+}
+
+func (m *MachinedManager) RemoveImage(ctx context.Context, req *kubelet.RemoveImageRequest) (*kubelet.RemoveImageResponse, error) {
+	glog.V(3).Infof("RemoveImage with request %s", req.String())
+	errs := []error{}
+	removeFunc := func(i int) {
+		if i == 0 {
+			err := m.imageService.RemoveImage(req.Image)
+			if err != nil {
+				errs = append(errs, mt.Errorf("RemoveImage from machined imageService failed with %v", err))
+			}
+		}
+	}
+	workqueue.Parallelize(2, 2, removeFunc)
+	if len(errs) > 0 {
+		glog.Error(errs[0])
+		return nil, errs[0]
+	}
+	return &kubelet.RemoveImageResponse{}, nil
 }
