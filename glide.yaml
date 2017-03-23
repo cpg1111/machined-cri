@@ -1,6 +1,13 @@
-package: github.com/cpg1111/nspawnlet
+package: github.com/cpg1111/machined-cri
 import:
-- package: k8s.io/kubernetes
-  version: v1.4.6
 - package: github.com/coreos/go-systemd
-  versoin: v14
+  version: ^14.0.0
+- package: google.golang.org/grpc
+  version: ^1.0.5
+- package: k8s.io/kubernetes
+  version: ^1.7.0-alpha.0
+  subpackages:
+  - pkg/kubelet/server/streaming
+  - pkg/kubelet/api/v1alpha1/runtime
+  - pkg/util/exec
+- package: github.com/golang/glog

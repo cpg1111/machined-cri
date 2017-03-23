@@ -1,8 +1,16 @@
-hash: 89025a674d7e2f9f90deb794fddf8eeaa6785bb1521972fe1629cc12689f80a1
-updated: 2016-11-18T16:30:41.868489375-05:00
+hash: 5d0557d315ab53d94e77afafd54da2c42bd182fb91d1305fd6a8cee2e2fdfe83
+updated: 2017-03-15T23:33:26.132436354-04:00
 imports:
 - name: github.com/coreos/go-systemd
   version: 48702e0da86bd25e76cfef347e2adeb434a0d0a6
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: google.golang.org/grpc
+  version: 708a7f9f3283aa2d4f6132d287d78683babe55c8
 - name: k8s.io/kubernetes
-  version: e569a27d02001e343cb68086bc06d47804f62af6
+  version: 98d693e9d24f585cb4e6615efdb3d07ec3a1616b
+  subpackages:
+  - pkg/kubelet/api/v1alpha1/runtime
+  - pkg/kubelet/server/streaming
+  - pkg/util/exec
 testImports: []
